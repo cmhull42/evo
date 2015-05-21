@@ -7,24 +7,18 @@
 
 using namespace std;
 
-const char* readShader(const char* inFile)
+string readShader(const char* inFile)
 {
   // compile vertex shader
-  const char* fileSource;
   ifstream in (inFile);
   if (in.is_open())
   {
     string contents((istreambuf_iterator<char>(in)), istreambuf_iterator<char>());
-    fileSource = contents.c_str();
     in.close();
-  }
-  else
-  {
-    cerr << "Unable to open shader file " << inFile << endl;
-    exit(EXIT_FAILURE);
+    return contents;
   }
 
-  return fileSource;
+  return NULL;
 }
 
 void error_callback(int error, const char* description)
@@ -84,7 +78,8 @@ int main() {
   glBufferData(GL_ARRAY_BUFFER, sizeof(g_vertex_buffer_data), g_vertex_buffer_data, GL_STATIC_DRAW);
 
   // compile vertex shader
-  const char* vertexSource = readShader("vert.glsl");
+  string vSourceS = readShader("vert.glsl");
+  const char* vertexSource = vSourceS.c_str();
 
   GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
   glShaderSource(vertexShader, 1, &vertexSource, NULL);
@@ -103,7 +98,8 @@ int main() {
   }
 
   // compile fragment shader
-  const char* fragmentSource = readShader("frag.glsl");
+  string fSourceS = readShader("frag.glsl");
+  const char* fragmentSource = fSourceS.c_str();
 
   GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
   glShaderSource(fragmentShader, 1, &fragmentSource, NULL);
