@@ -3,13 +3,14 @@
 #include <cstdlib>
 #include <iostream>
 #include <fstream>
+#include <chrono>
+#include <cmath>
 
 
 using namespace std;
 
 string readShader(const char* inFile)
 {
-  // compile vertex shader
   ifstream in (inFile);
   if (in.is_open())
   {
@@ -41,6 +42,7 @@ int main() {
   {
     exit(EXIT_FAILURE);
   }
+
   glfwWindowHint(GLFW_SAMPLES, 4); // 4x antialiasing
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3); // We want OpenGL 3.3
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
@@ -62,18 +64,31 @@ int main() {
     exit(EXIT_FAILURE);
   }
 
-  GLuint VertexArrayID;
-  glGenVertexArrays(1, &VertexArrayID);
-  glBindVertexArray(VertexArrayID);
-
-  GLfloat g_vertex_buffer_data[] = {
-    0.0f, 0.5f,
-    0.5f, -0.5f,
-    -0.5f, -0.5f
-  };
-
   GLuint vertexbuffer;
   glGenBuffers(1, &vertexbuffer);
+
+  GLuint vao;
+  glGenVertexArrays(1, &vao);
+  glBindVertexArray(vao);
+
+  GLuint ebo;
+  glGenBuffers(1, &ebo);
+
+  GLuint elements[] = {
+    0, 1, 4
+  };
+
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(elements), elements, GL_STATIC_DRAW);
+
+  GLfloat g_vertex_buffer_data[] = {
+    -0.5f,  0.5f, 1.0f, 0.0f, 0.0f,
+     0.5f,  0.5f, 0.0f, 1.0f, 0.0f,
+     0.5f, -0.5f, 0.0f, 0.0f, 1.0f,
+    -0.5f, -0.5f, 1.0f, 1.0f, 1.0f,
+     0.0f, -0.5f, 1.0f, 0.0f, 0.0f
+  };
+
   glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
   glBufferData(GL_ARRAY_BUFFER, sizeof(g_vertex_buffer_data), g_vertex_buffer_data, GL_STATIC_DRAW);
 
@@ -121,40 +136,37 @@ int main() {
   GLuint shaderProgram = glCreateProgram();
   glAttachShader(shaderProgram, vertexShader);
   glAttachShader(shaderProgram, fragmentShader);
-
   glBindFragDataLocation(shaderProgram, 0, "outColor");
-
   glLinkProgram(shaderProgram);
-  glUseProgram(shaderProgram);
 
+  // link position attribute from shader
   GLint posAttrib = glGetAttribLocation(shaderProgram, "position");
-  glVertexAttribPointer(posAttrib, 2, GL_FLOAT, GL_FALSE, 0, 0);
   glEnableVertexAttribArray(posAttrib);
+  glVertexAttribPointer(posAttrib, 2, GL_FLOAT, GL_FALSE, 5*sizeof(GLfloat), 0);
 
+  // link color attribute from shader
+  GLint colAttrib = glGetAttribLocation(shaderProgram, "color");
+  glEnableVertexAttribArray(colAttrib);
+  glVertexAttribPointer(colAttrib, 3, GL_FLOAT, GL_FALSE, 5*sizeof(GLfloat), (void*)(2*sizeof(GLfloat)));
+
+  // prepare window
   glfwSetKeyCallback(window, key_callback);
   glfwSwapInterval(1);
 
   glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
 
+  glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+
+  // event loop
   while (!glfwWindowShouldClose(window))
   {
-    int width, height;
-    glfwGetFramebufferSize(window, &width, &height);
-    glViewport(0, 0, width, height);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glUseProgram(shaderProgram);
+    glBindVertexArray(vao);
 
-    glEnableVertexAttribArray(0);
-    glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
-    glVertexAttribPointer(
-      0,
-      3,
-      GL_FLOAT,
-      GL_FALSE,
-      0,
-      (void*)0
-    );
+    glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_INT, 0);
 
-    glDrawArrays(GL_TRIANGLES, 0, 3);
-    glDisableVertexAttribArray(0);
+    // glDisableVertexAttribArray(0);
 
     glfwSwapBuffers(window);
     glfwPollEvents();
