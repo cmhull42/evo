@@ -2,9 +2,30 @@
 #include <GLFW/glfw3.h>
 #include <cstdlib>
 #include <iostream>
+#include <fstream>
 
 
 using namespace std;
+
+const char* readShader(const char* inFile)
+{
+  // compile vertex shader
+  const char* fileSource;
+  ifstream in (inFile);
+  if (in.is_open())
+  {
+    string contents((istreambuf_iterator<char>(in)), istreambuf_iterator<char>());
+    fileSource = contents.c_str();
+    in.close();
+  }
+  else
+  {
+    cerr << "Unable to open shader file " << inFile << endl;
+    exit(EXIT_FAILURE);
+  }
+
+  return fileSource;
+}
 
 void error_callback(int error, const char* description)
 {
@@ -47,6 +68,73 @@ int main() {
     exit(EXIT_FAILURE);
   }
 
+  GLuint VertexArrayID;
+  glGenVertexArrays(1, &VertexArrayID);
+  glBindVertexArray(VertexArrayID);
+
+  GLfloat g_vertex_buffer_data[] = {
+    0.0f, 0.5f,
+    0.5f, -0.5f,
+    -0.5f, -0.5f
+  };
+
+  GLuint vertexbuffer;
+  glGenBuffers(1, &vertexbuffer);
+  glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(g_vertex_buffer_data), g_vertex_buffer_data, GL_STATIC_DRAW);
+
+  // compile vertex shader
+  const char* vertexSource = readShader("vert.glsl");
+
+  GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
+  glShaderSource(vertexShader, 1, &vertexSource, NULL);
+  glCompileShader(vertexShader);
+
+  // check shader compile
+  GLint status;
+  glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &status);
+  if (status != GL_TRUE)
+  {
+    char buffer[512];
+    glGetShaderInfoLog(vertexShader, 512, NULL, buffer);
+    cerr << "Error in shader file vert.glsl" << endl;
+    cerr << buffer << endl;
+    exit(EXIT_FAILURE);
+  }
+
+  // compile fragment shader
+  const char* fragmentSource = readShader("frag.glsl");
+
+  GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+  glShaderSource(fragmentShader, 1, &fragmentSource, NULL);
+  glCompileShader(fragmentShader);
+
+  //check fragment shader compile
+  glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &status);
+  if (status != GL_TRUE)
+  {
+    char buffer[512];
+    glGetShaderInfoLog(fragmentShader, 512, NULL, buffer);
+    cerr << "Error in shader file frag.glsl" << endl;
+    cerr << buffer << endl;
+    cerr << fragmentSource << endl;
+    exit(EXIT_FAILURE);
+  }
+
+  // build shaders
+  GLuint shaderProgram = glCreateProgram();
+  glAttachShader(shaderProgram, vertexShader);
+  glAttachShader(shaderProgram, fragmentShader);
+
+  glBindFragDataLocation(shaderProgram, 0, "outColor");
+
+  glLinkProgram(shaderProgram);
+  glUseProgram(shaderProgram);
+
+  GLint posAttrib = glGetAttribLocation(shaderProgram, "position");
+  glVertexAttribPointer(posAttrib, 2, GL_FLOAT, GL_FALSE, 0, 0);
+  glEnableVertexAttribArray(posAttrib);
+
   glfwSetKeyCallback(window, key_callback);
   glfwSwapInterval(1);
 
@@ -58,7 +146,21 @@ int main() {
     glfwGetFramebufferSize(window, &width, &height);
     glViewport(0, 0, width, height);
 
+    glEnableVertexAttribArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
+    glVertexAttribPointer(
+      0,
+      3,
+      GL_FLOAT,
+      GL_FALSE,
+      0,
+      (void*)0
+    );
 
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+    glDisableVertexAttribArray(0);
+
+    glfwSwapBuffers(window);
     glfwPollEvents();
   }
 
